@@ -1,0 +1,23 @@
+# Object files
+*.o
+nucpackgen
+*.bin
+
+# backfiles
+*~
+
+# testing images
+/images
+
+#CMake
+CMakeCache.txt
+**/CMakeFiles/**
+CMakeScripts
+Makefile
+cmake_install.cmake
+install_manifest.txt
+CTestTestfile.cmake
+
+# IDE Files
+
+
