@@ -28,5 +28,5 @@ Building:
 ================================
 Use CMake tool for build the project. For example:
 
-	cmake . <br>
-	make <br> 
+	cmake .
+	make 
