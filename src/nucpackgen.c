@@ -35,8 +35,8 @@ static void usage(FILE* fp, int argc, char** argv) {
         "Usage: %s [options]\n\n"
         "Options:\n"
         "-h | --help           print this message\n"
-        "-d | --items-dir      directory with u-boot.bin, environment.img, uImage, rootfs.jffs2\n"
-        "-i | --ddr-ini-file   DDR ini file from sys_cfg\n"
+        "-i | --items-dir      directory with u-boot.bin, environment.img, uImage, rootfs.jffs2\n"
+        "-d | --ddr-ini-file   DDR ini file from sys_cfg\n"
         "-o | --output-file    output pack name\n"
         "\n", VERSION, argv[0]);
 }
