@@ -1,7 +1,7 @@
 NucPack Generator
 ==================
 
-"NucPackGen", is a NucWriter PACK generation utility
+"NucPackGen", is a NucWriter PACK generating utility
 
 Description
 ==================
