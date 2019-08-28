@@ -15,6 +15,7 @@
 static char* items_dir=NULL;
 static char* ddr_ini_file="sys_cfg/NUC976DK62Y.ini";
 static char* output_file=NULL;
+static char* repack_file=NULL;
 
 static PACK_ITEM item[] =
 {
@@ -38,16 +39,18 @@ static void usage(FILE* fp, int argc, char** argv) {
         "-i | --items-dir      directory with u-boot.bin, environment.img, uImage, rootfs.jffs2\n"
         "-d | --ddr-ini-file   DDR ini file from sys_cfg\n"
         "-o | --output-file    output pack name\n"
+    	"-r | --repack-file    input pack name\n"
         "\n", VERSION, argv[0]);
 }
 
-static const char short_options[] = "hd:i:o:";
+static const char short_options[] = "hd:i:o:r:";
 
 static const struct option long_options[] = {
         { "help",           no_argument,        NULL, 'h' },
         { "items-dir",      required_argument,  NULL, 'd' },
         { "ddr-ini-file",   required_argument,  NULL, 'i' },
         { "output-file",    required_argument,  NULL, 'o' },
+		{ "repack-file",    required_argument,  NULL, 'r' },
         { 0, 0, 0, 0 }
 };
 
@@ -99,6 +102,14 @@ int getopt_proc(int argc, char **argv)
 
             break;
 
+        case 'r':
+        	if(optarg)
+        	{
+        		repack_file=optarg;
+        	}
+
+        	break;
+
         default:
             usage(stderr, argc, argv);
             exit(EXIT_FAILURE);
@@ -108,10 +119,16 @@ int getopt_proc(int argc, char **argv)
     DPRINT("items_dir=%s\nddr_ini_file=%s\noutput_file=%s\n",
         items_dir, ddr_ini_file, output_file);
 
-    if(!items_dir || !output_file)
+    if( (!items_dir && !repack_file) || !output_file)
     {
         usage(stderr, argc, argv);
         exit(EXIT_FAILURE);
+    }
+
+    if (items_dir && repack_file)
+    {
+    	fprintf(stdout, "Incompatible options\n");
+    	exit(EXIT_FAILURE);
     }
 
     return EXIT_SUCCESS;
@@ -119,9 +136,14 @@ int getopt_proc(int argc, char **argv)
 
 int main(int argc, char **argv)
 {
+	int exitcode;
+
     getopt_proc(argc, argv);
 
-    nucpack_create(items_dir, item, item_sz, ddr_ini_file, output_file);
+    if (!repack_file)
+    	exitcode=nucpack_create(items_dir, item, item_sz, ddr_ini_file, output_file);
+    else
+    	exitcode=nucpack_repack(repack_file, ddr_ini_file, output_file);
 
-    return 0;
+    return exitcode;
 }

@@ -341,3 +341,135 @@ int nucpack_create(char* items_dir, PPACK_ITEM item, size_t item_sz, char* ddrin
 
     return 0;
 }
+
+#define PACK_FORMAT_HEADER (sizeof(PACK_HEAD)) // (16)
+#define BOOT_HEADER        (sizeof(PACK_CHILD_HEAD))  // (16) 0x20 'T' 'V' 'N'
+//#define DDR_INITIAL_MARKER  (4)  // 0x55 0xAA 0x55 0xAA
+//#define DDR_COUNTER         (4)  // DDR parameter length
+int parse_header(unsigned char* buf, size_t filelen, size_t *bootheader_pos, size_t *ddr_len)
+{
+	int ddr_cnt;
+	size_t ini_idx, i;
+	// Find DDR Initial Marker
+	for(i=0; i<filelen; )
+	{
+		if((buf[i] == 0x20) && (buf[i+1] == 'T') && (buf[i+2] == 'V') && (buf[i+3] == 'N'))
+		{
+			if ((buf[i+BOOT_HEADER] == 0x55) &&
+					(buf[i+BOOT_HEADER+1] == 0xaa) &&
+					(buf[i+BOOT_HEADER+2] == 0x55) &&
+					(buf[i+BOOT_HEADER+3] == 0xaa))
+			{
+				ini_idx = (i+BOOT_HEADER); // Found DDR
+				ddr_cnt = (((buf[ini_idx+7]&0xff) << 24) | ((buf[ini_idx+6]&0xff) << 16) |
+						((buf[ini_idx+5]&0xff) << 8) | ((buf[ini_idx+4]&0xff)));
+				*ddr_len = ddr_cnt*8;
+				DPRINT("ini_idx:0x%x(%d)  ddr_cnt =0x%x(%d)\n",
+						ini_idx, ini_idx, ddr_cnt, ddr_cnt);
+				*bootheader_pos = i;
+				return 0;
+			}
+		}
+		i++;
+	}
+
+	return -1;
+}
+
+int nucpack_repack(char* repack_file, char* ddr_ini_file, char* output_file)
+{
+	int ret =0;
+	FILE* wfp=NULL, *rfp=NULL;
+	size_t rf_len;            // input file length
+	size_t rf_bootheader_pos; // boot header offset (magic " TVN" position)
+	size_t rf_ddrlen;
+
+	char *pBuffer=NULL;
+
+	PACK_HEAD pack_head;
+	PACK_CHILD_HEAD pack_child;
+
+	size_t ddrinilen, ddrlen;
+	char * ddrinibuf=NULL, *ddrbuf=NULL;
+
+	// load input file
+	rfp=fopen(repack_file,"rb");
+	if(!rfp)
+	{
+		perror("File Open error");
+		exit(EXIT_FAILURE);
+	}
+	fseek(rfp,0,SEEK_END);
+	rf_len= ftell(rfp);
+	fseek(rfp,0,SEEK_SET);
+
+	// create output file
+	wfp=fopen(output_file, "w+b");
+	if(!wfp)
+	{
+		perror("File Open error");
+		ret = -1;
+		goto EXIT;
+	}
+
+	pBuffer = malloc(rf_len);
+	if (!pBuffer) {
+		perror("malloc error");
+		ret = -1;
+		goto EXIT;
+	}
+	fread(pBuffer, 1, rf_len,rfp);
+
+	if (parse_header((unsigned char*)pBuffer, rf_len, &rf_bootheader_pos, &rf_ddrlen)<0) {
+		perror("Bad header");
+		ret = -2;
+		goto EXIT;
+	}
+	DPRINT("boot header pos=0x%x ddr_len=%d\n", rf_bootheader_pos, rf_ddrlen);
+	rf_ddrlen = ((rf_ddrlen+8+15)/16)*16;
+	DPRINT("rf_ddrlen = 0x%x (%d)\n",rf_ddrlen, rf_ddrlen);
+	if (rf_bootheader_pos < (BOOT_HEADER+PACK_FORMAT_HEADER)) {
+		perror("Bad header");
+		ret = -2;
+		goto EXIT;
+	}
+	memcpy(&pack_head, &pBuffer[rf_bootheader_pos-BOOT_HEADER-PACK_FORMAT_HEADER], PACK_FORMAT_HEADER);
+	memcpy(&pack_child, &pBuffer[rf_bootheader_pos-BOOT_HEADER], BOOT_HEADER);
+
+	// load new DDR init data
+	ddrinibuf=ddrsec_load(ddr_ini_file, &ddrinilen);
+	ddrbuf=ddrsec_create(ddrinibuf,ddrinilen,&ddrlen);
+
+	fwrite((char *)&pack_head,PACK_FORMAT_HEADER,1,wfp);  //write  pack_head
+
+	DPRINT("pack_child.filelen=%d\n", pack_child.filelen);
+	pack_child.filelen = pack_child.filelen - rf_ddrlen + ddrlen;  // new ddrlen
+	DPRINT("pack_child.filelen=%d\n", pack_child.filelen);
+
+	fwrite((char *)&pack_child,1,BOOT_HEADER,wfp);        //write boot header
+	fwrite(&pBuffer[rf_bootheader_pos],1,16 ,wfp);        // copy magic + item header
+	fwrite(ddrbuf,1,ddrlen,wfp);                          // write new ddr ini data
+
+	free(ddrbuf);
+	free(ddrinibuf);
+
+	// copy data
+	fwrite(&pBuffer[rf_ddrlen+rf_bootheader_pos+0x10], 1, rf_len-rf_ddrlen-rf_bootheader_pos-0x10, wfp);
+
+
+	EXIT:
+
+	if (pBuffer) {
+		free(pBuffer);
+		pBuffer=NULL;
+	}
+	if (rfp) {
+		fclose(rfp);
+		rfp=NULL;
+	}
+	if (wfp) {
+		fclose(wfp);
+		wfp=NULL;
+	}
+	return ret;
+}

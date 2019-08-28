@@ -13,7 +13,7 @@ typedef enum {
     FORMAT_ACTION=6
 } ACTION_FLAG;
 
-typedef struct _PACK_CHILD_HEAD
+typedef struct __attribute__((__packed__)) _PACK_CHILD_HEAD
 {
     uint32_t filelen;
     uint32_t startaddr;
@@ -21,7 +21,7 @@ typedef struct _PACK_CHILD_HEAD
     uint32_t eserve[1];
 } PACK_CHILD_HEAD,*PPACK_CHILD_HEAD;
 
-typedef struct _PACK_HEAD
+typedef struct __attribute__((__packed__)) _PACK_HEAD
 {
     uint32_t actionFlag;
     uint32_t fileLength;
@@ -40,7 +40,7 @@ typedef enum
     PMTP=15
 } PACK_ITEM_TYPE;
 
-typedef struct _PACK_ITEM
+typedef struct __attribute__((__packed__)) _PACK_ITEM
 {
     PACK_ITEM_TYPE type;
     char* name;
@@ -50,5 +50,6 @@ typedef struct _PACK_ITEM
 
 
 int nucpack_create(char* items_dir, PPACK_ITEM item, size_t item_sz, char* ddrinifile, char* outputfile);
+int nucpack_repack(char* repack_file, char* ddr_ini_file, char* output_file);
 
 #endif
